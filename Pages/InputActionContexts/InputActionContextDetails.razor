@@ -1,0 +1,144 @@
+@page "/inputactioncontext/{contextId:int}"
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="room-event-details">
+    @if (loading)
+    {
+        <p>Loading systems...</p>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <p class="alert alert-danger" role="alert">Error: @error</p>
+    }
+    else
+    {
+        <EditForm Model="@actionContext" OnValidSubmit="HandleUpdateEvent">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="card event-section">
+                <div class="card-header">
+                    <h2>Module</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="HandleUpdateEvent">Save</button>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-semibold">Context name</label>
+                    <InputText @bind-Value="actionContext.Name" class="form-control" placeholder="Module Name" />
+                </div>
+            </div>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Mapping</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddInputAction">Add New Map</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < actionContext.Actions.Count; i++)
+                    {
+                        var j = i;
+                        <div class="parameter-row">
+                            <InputText list="inputactions" @bind-Value="selectedActionNames[j]"
+                                       @bind-Value:after="() => OnInputActionSelected(j)" />
+
+                            <datalist id="inputactions">
+                                @foreach (var inputAction in inputActions.Actions)
+                                {
+                                    <option value="@($"{inputAction.Module.Name} - {inputAction.Action.Name}")" />
+                                }
+                            </datalist>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => DeleteInputAction(j)">Remove</button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+        </EditForm>
+    }
+</div>
+@code {
+    [Parameter]
+    public int contextId { get; set; }
+
+    Weckest.Game.InputActionContext? actionContext;
+    InputActions? inputActions;
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            inputActions = await GameClient.GetInputActionsAsync(new Empty());
+            Console.WriteLine(inputActions.Actions.Count);
+            actionContext = await GameClient.GetInputActionContextAsync(new Id { Id_ = contextId });
+            if (actionContext == null)
+            {
+                error = "Room event not found.";
+            }
+
+            selectedActions = actionContext.Actions
+                .Select(action =>
+                {
+                    var index = inputActions.Actions
+                        .Select((availableAction, i) => new { availableAction, i })
+                        .Where(x => x.availableAction.Action.Id == action.Action.Id)
+                        .Select(x => x.i)
+                        .DefaultIfEmpty(-1)
+                        .First();
+
+                    return index >= 0 ? index.ToString() : "";
+                })
+                .ToList();
+
+            selectedActionNames = actionContext.Actions
+                .Select(action => action.Action.Name)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task HandleUpdateEvent()
+    {
+        await GameClient.UpdateInputActioContextAsync(actionContext);
+        NavManager.NavigateTo("/inputactioncontext");
+    }
+
+    private void AddInputAction()
+    {
+        actionContext.Actions.Add(new InputAction());
+        selectedActionNames.Add("");
+    }
+
+    private async void DeleteInputAction(int index)
+    {
+
+    }
+
+    private List<string> selectedActions = new();
+
+    private List<string> selectedActionNames = new();
+
+    private void OnInputActionSelected(int destinationIndex)
+{
+    var selected = inputActions.Actions.FirstOrDefault(a =>
+        $"{a.Module.Name} - {a.Action.Name}" ==
+        selectedActionNames[destinationIndex]);
+
+    if (selected == null)
+        return;
+
+    actionContext.Actions[destinationIndex] = selected;
+}
+}

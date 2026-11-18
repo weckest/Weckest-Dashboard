@@ -1,0 +1,94 @@
+﻿@page "/roomevents"
+
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Room Events</h3>
+    <button class="btn btn-success" @onclick="CreateEvent">Create New Event</button>
+</div>
+
+@if (loading)
+{
+    <p>Loading room events...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p>Error: @error</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle custom-expandable-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Requirements</th>
+                    <th>Operations</th>
+                    <th>Outputs</th>
+                    <th>Parameters</th>
+                    <th>Cooldown</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var eventItem in roomEvents)
+                {
+                    <!-- Native click handler directly on the entire row element -->
+                    <tr @onclick="() => ToggleRow(eventItem)">
+                        <td>@eventItem.Name</td>
+                        <td>@eventItem.Requirements.Count</td>
+                        <td>@eventItem.Operations.Count</td>
+                        <td>@eventItem.Outputs.Count</td>
+                        <td>@eventItem.Parameters.Count</td>
+                        <td>@eventItem.Cooldown</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+
+@code {
+    IQueryable<RoomEvent> roomEvents = new List<RoomEvent>().AsQueryable();
+
+    private bool loading = true;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoomEvents();
+    }
+
+    private async Task LoadRoomEvents()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            var response = await GameClient.GetRoomEventsAsync(new Empty());
+            
+            // Map queryable directly to a list we can append items onto later
+            roomEvents = response?.Events?.ToList().AsQueryable() ?? new List<RoomEvent>().AsQueryable();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ToggleRow(RoomEvent item)
+    {
+        NavManager.NavigateTo($"/roomevents/details/{item.Id}");
+    }
+
+    private void CreateEvent()
+    {
+        NavManager.NavigateTo("/roomevents/create");
+    }
+
+}

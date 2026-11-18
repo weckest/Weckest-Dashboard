@@ -1,0 +1,51 @@
+﻿@page "/"
+
+<PageTitle>Home</PageTitle>
+
+@inject GameService.GameServiceClient GameClient
+
+<h3>Available Systems</h3>
+
+@if (loading)
+{
+    <p>Loading systems...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p>Error: @error</p>
+}
+else
+{
+    <ul>
+        @foreach (var system in systems)
+        {
+            <li>@system</li>
+        }
+    </ul>
+}
+
+@code {
+    private List<string> systems = [];
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await GameClient.GetSystemsAsync(
+                new Empty()
+            );
+
+            systems = response.Systems.ToList().Select(system => system.Name).ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

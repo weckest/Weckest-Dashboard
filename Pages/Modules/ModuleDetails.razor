@@ -1,0 +1,172 @@
+@page "/modules/{moduleId:int}"
+
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+
+
+<div class="room-event-details">
+    @if (loading)
+    {
+        <p>Loading systems...</p>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <p class="alert alert-danger" role="alert">Error: @error</p>
+    }
+    else
+    {
+        <EditForm Model="@module" OnValidSubmit="HandleUpdateEvent">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="card event-section">
+                <div class="card-header">
+                    <h2>Module</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="HandleUpdateEvent">Save</button>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-semibold">Module name</label>
+                    <InputText @bind-Value="module.Name" class="form-control" placeholder="Module Name" />
+                </div>
+            </div>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Mapping</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddMap">Add New Map</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < module.Mappings.Count; i++)
+                    {
+                        var j = i;
+                        <div class="parameter-row">
+                            <InputNumber @bind-Value="module.Mappings[j].PinId" class="form-control" />
+                            <InputNumber @bind-Value="module.Mappings[j].InputId" class="form-control" />
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => DeleteMap(j)">Remove</button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Input Actions</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddAction">Add New Map</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < inputActions.Actions.Count; i++)
+                    {
+                        var j = i;
+                        <div class="parameter-row">
+                            <InputSelect @bind-Value="inputActions.Actions[j].InputId" class="form-control">
+                                @foreach (var map in module.Mappings)
+                                {
+                                    <option value="@map.InputId">@map.InputId</option>
+                                }
+                            </InputSelect>
+                            <InputSelect @bind-Value="inputActions.Actions[j].InputEvent" class="form-select">
+                                @foreach (var type in Enum.GetValues<InputEvent>())
+                                {
+                                    <option value="@type">@type</option>
+                                }
+                            </InputSelect>
+                            <InputText list="actions" @bind-Value="inputActions.Actions[j].Action.Name" class="form-control" />
+                            <datalist id="actions">
+                                @foreach (var action in actions.Actions_)
+                                {
+                                    <option value="@action.Name">@action.Name</option>
+                                }
+                            </datalist>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => DeleteMap(j)">Remove</button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int moduleId { get; set; }
+    Module module;
+    Actions? actions;
+    InputActions? inputActions;
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            actions = await GameClient.GetActionsAsync(new Empty());
+            inputActions = await GameClient.GetInputActionsForModuleAsync(new Id { Id_ = moduleId });
+            module = await GameClient.GetModuleAsync(new Id { Id_ = moduleId });
+            if (module == null)
+            {
+                error = "Room event not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task HandleUpdateEvent()
+    {
+        try
+        {
+            GameClient.UpdateModuleAsync(module);
+
+            for (int i = 0; i < inputActions.Actions.Count; i++)
+            {
+                var inputAction = inputActions.Actions[i];
+                foreach (var action in actions.Actions_)
+                {
+                    if (inputAction.Action.Name == action.Name)
+                    {
+                        inputActions.Actions[i].Action = action;
+                        await GameClient.UpdateInputActionAsync(inputActions.Actions[i]);
+                        break;
+                    }
+                }
+            }
+
+            NavManager.NavigateTo("/modules");
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to save event: {ex.Message}";
+        }
+    }
+
+    private async Task AddMap()
+    {
+        module.Mappings.Add(new ModulePin());
+    }
+
+    private void DeleteMap(int index)
+    {
+        if (module != null && index >= 0 && index < module.Mappings.Count)
+        {
+            module.Mappings.RemoveAt(index);
+        }
+    }
+
+    private async Task AddAction()
+    {
+        inputActions.Actions.Add(new InputAction { Module = module, Action = new Weckest.Game.Action() });
+    }
+}

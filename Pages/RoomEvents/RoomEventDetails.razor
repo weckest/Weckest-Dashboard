@@ -1,0 +1,359 @@
+﻿@page "/roomevents/details/{eventId:int}"
+@using NuGet.Versioning
+@inject GameService.GameServiceClient GameClient
+@inject NavigationManager NavManager
+
+<div class="room-event-details">
+    @if (loading)
+    {
+        <p>Loading systems...</p>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <p class="alert alert-danger" role="alert">Error: @error</p>
+    }
+    else
+    {
+        <header class="page-heading">
+            <h1>Room event details</h1>
+            <button type="button" class="btn btn-success btn-sm" @onclick="HandleCreateEvent">Save</button>
+        </header>
+
+        <EditForm Model="@roomEvent" OnValidSubmit="HandleCreateEvent">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="card event-section">
+                <div class="card-header">
+                    <h2>Event</h2>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-semibold">Event name</label>
+                    <div class="event-name">@roomEvent.Name</div>
+                </div>
+            </div>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Requirements</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddRequirement">Add requirement</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < roomEvent.Requirements.Count; i++)
+                    {
+                        var j = i;
+                        <div class="editor-row">
+                            <InputText list="actions" @bind-Value="roomEvent.Requirements[j].Name" class="form-control"
+                                       placeholder="Requirement" />
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => RemoveRequirement(j)">Remove</button>
+                        </div>
+                    }
+                    <datalist id="actions">
+                        @foreach (var action in actions.Actions_)
+                        {
+                            <option value="@action.Name">@action.Name</option>
+                        }
+                    </datalist>
+                </div>
+            </section>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Operations</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddOperation">Add operation</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < roomEvent.Operations.Count; i++)
+                    {
+                        var j = i;
+                        <div class="editor-row">
+                            <InputText list="operations" @bind-Value="roomEvent.Operations[j].Name" class="form-control"
+                                       placeholder="Operation" />
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => RemoveOperation(j)">Remove</button>
+                        </div>
+                    }
+                    <datalist id="operations">
+                        @foreach (var system in gameSystems.Systems)
+                        {
+                            <option value="@system.Name">
+                                @if (system.Requirements.Count > 0)
+                                {
+                                    <div>Inputs: </div>
+                                }
+                                @foreach (var requirement in system.Requirements)
+                                {
+                                    @requirement
+                                    if (system.Requirements.IndexOf(requirement) < system.Requirements.Count - 1)
+                                    {
+                                        <span>, </span>
+                                    }
+                                }
+                                @if (system.Outputs.Count > 0)
+                                {
+                                    <div>Outputs: </div>
+                                }
+                                @foreach (var output in system.Outputs)
+                                {
+                                    @output
+                                    if (system.Outputs.IndexOf(output) < system.Outputs.Count - 1)
+                                    {
+                                        <span>, </span>
+                                    }
+                                }
+                            </option>
+                        }
+                    </datalist>
+                </div>
+            </section>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Outputs</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddOutput">Add output</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < roomEvent.Outputs.Count; i++)
+                    {
+                        var j = i;
+                        <div class="editor-row">
+                            <InputText list="output-actions" @bind-Value="roomEvent.Outputs[j].Name" class="form-control"
+                                       placeholder="Output" />
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => RemoveOutput(j)">Remove</button>
+                        </div>
+                    }
+                    <datalist id="output-actions">
+                        @foreach (var action in actions.Actions_)
+                        {
+                            <option value="@action.Name">@action.Name</option>
+                        }
+                    </datalist>
+                </div>
+            </section>
+
+            <section class="card event-section">
+                <div class="card-header section-header">
+                    <h2>Parameters</h2>
+                    <button type="button" class="btn btn-success btn-sm" @onclick="AddParameter">Add parameter</button>
+                </div>
+                <div class="card-body editor-list">
+                    @for (var i = 0; i < roomEvent.Parameters.Count; i++)
+                    {
+                        var j = i;
+                        <div class="parameter-row">
+                            <InputText list="inputs" @bind-Value="roomEvent.Parameters[j].Name" class="form-control"
+                                       placeholder="Parameter name" aria-label="Parameter name" />
+                            <InputText @bind-Value="roomEvent.Parameters[j].Value" class="form-control" placeholder="Value"
+                                       aria-label="Parameter value" />
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => RemoveParameter(j)">Remove</button>
+                        </div>
+                    }
+                    <datalist id="inputs">
+                        @foreach (var parameter in GetRequiredParametersForEvent())
+                        {
+                            <option value="@parameter.Key">@parameter</option>
+                        }
+                    </datalist>
+                </div>
+            </section>
+
+            <button type="button" class="btn btn-danger btn-sm" @onclick="DeleteRoomEvent">Delete</button>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int eventId { get; set; }
+    RoomEvent? roomEvent;
+
+    GameSystems? gameSystems;
+    Actions? actions;
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            actions = await GameClient.GetActionsAsync(new Empty());
+            gameSystems = await GameClient.GetSystemsAsync(new Empty());
+            roomEvent = await GameClient.GetRoomEventAsync(new Id { Id_ = eventId });
+            if (roomEvent == null)
+            {
+                error = "Room event not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task HandleCreateEvent()
+    {
+        try
+        {
+            //Update the requirements/operations/outputs to be the actual references
+
+            for(int i = 0; i < roomEvent.Requirements.Count; i++)
+            {
+                var requirement = roomEvent.Requirements[i];
+                foreach(var action in actions.Actions_)
+                {
+                    if(requirement.Name == action.Name)
+                    {
+                        roomEvent.Requirements[i] = action;
+                        break;
+                    }
+                }
+            }
+
+            for(int i = 0; i < roomEvent.Operations.Count; i++)
+            {
+                var operation = roomEvent.Operations[i];
+                foreach(var system in gameSystems.Systems)
+                {
+                    if(operation.Name == system.Name)
+                    {
+                        roomEvent.Operations[i] = system;
+                        break;
+                    }
+                }
+            }
+
+            for(int i = 0; i < roomEvent.Outputs.Count; i++)
+            {
+                var output = roomEvent.Outputs[i];
+                foreach(var action in actions.Actions_)
+                {
+                    if(output.Name == action.Name)
+                    {
+                        roomEvent.Outputs[i] = action;
+                        break;
+                    }
+                }
+            }
+
+            // Send the gRPC call back to your server endpoint layout
+            await GameClient.UpdateRoomEventAsync(roomEvent);
+
+            NavManager.NavigateTo("/roomevents"); // Navigate back to the list view after creation
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to save event: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteRoomEvent()
+    {
+        await GameClient.DeleteRoomEventAsync(roomEvent);
+
+        NavManager.NavigateTo("/roomevents");
+    }
+
+    private void AddRequirement()
+    {
+        roomEvent?.Requirements.Add(new Weckest.Game.Action());
+    }
+
+    private void RemoveRequirement(int index)
+    {
+        if (roomEvent != null && index >= 0 && index < roomEvent.Requirements.Count)
+        {
+            roomEvent.Requirements.RemoveAt(index);
+        }
+    }
+
+    private void AddOperation()
+    {
+        roomEvent?.Operations.Add(new System());
+    }
+
+    private void RemoveOperation(int index)
+    {
+        if (roomEvent != null && index >= 0 && index < roomEvent.Operations.Count)
+        {
+            roomEvent.Operations.RemoveAt(index);
+        }
+    }
+
+    private void AddOutput()
+    {
+        roomEvent?.Outputs.Add(new Weckest.Game.Action());
+    }
+
+    private void RemoveOutput(int index)
+    {
+        if (roomEvent != null && index >= 0 && index < roomEvent.Outputs.Count)
+        {
+            roomEvent.Outputs.RemoveAt(index);
+        }
+    }
+
+    private void AddParameter()
+    {
+        roomEvent?.Parameters.Add(new Parameter());
+    }
+
+    private void RemoveParameter(int index)
+    {
+        if (roomEvent != null && index >= 0 && index < roomEvent.Parameters.Count)
+        {
+            roomEvent.Parameters.RemoveAt(index);
+        }
+    }
+
+    private IDictionary<string, string> GetRequiredParametersForEvent()
+    {
+        IDictionary<string, string> requiredParameters =
+        new Dictionary<string, string>();
+
+    if (roomEvent == null || gameSystems == null)
+        return requiredParameters;
+
+    foreach (var operation in roomEvent.Operations)
+    {
+        // Ignore empty operation rows.
+        if (string.IsNullOrWhiteSpace(operation.Name))
+            continue;
+
+        // Find the corresponding system safely.
+        var system = gameSystems.Systems
+            .FirstOrDefault(s => s.Name == operation.Name);
+
+        // Ignore names that don't match an available system.
+        if (system == null)
+            continue;
+
+        foreach (var requirement in system.Requirements)
+        {
+            bool alreadyProvided = roomEvent.Parameters
+                .Any(p => p.Name == requirement);
+
+            bool providedByAnotherOperation = gameSystems.Systems
+                .Where(s => roomEvent.Operations.Any(
+                    op => op.Name == s.Name))
+                .Any(s => s.Outputs.Any(o => o == requirement));
+
+            if (!alreadyProvided && !providedByAnotherOperation)
+            {
+                requiredParameters.TryAdd(requirement, operation.Name);
+            }
+        }
+    }
+
+    return requiredParameters;
+    }
+
+}

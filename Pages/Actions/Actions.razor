@@ -1,0 +1,90 @@
+@page "/actions"
+
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Actions</h3>
+    <button class="btn btn-success" @onclick="CreateAction">Create New Action</button>
+</div>
+
+@if (loading)
+{
+    <p>Loading modules...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p>Error: @error</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle custom-expandable-table">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Name</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var action in actions.Actions_)
+                {
+                    <!-- Native click handler directly on the entire row element -->
+                    <tr>
+                        <td>@action.Id</td>
+                        <td>@action.Name</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => RemoveAction(action)">Remove</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    Weckest.Game.Actions? actions;
+
+    private bool loading = true;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActions();
+    }
+
+    private async Task LoadActions()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            var response = await GameClient.GetActionsAsync(new Empty());
+
+            // Map queryable directly to a list we can append items onto later
+            actions = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task RemoveAction(Weckest.Game.Action action)
+    {
+        await GameClient.DeleteActionAsync(action);
+        NavManager.Refresh();
+    }
+
+    private void CreateAction()
+    {
+        NavManager.NavigateTo("/actions/create");
+    }
+}

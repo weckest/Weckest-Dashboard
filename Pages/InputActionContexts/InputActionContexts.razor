@@ -1,0 +1,84 @@
+@page "/inputactioncontext"
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Input Action Contexts</h3>
+    <button class="btn btn-success" @onclick="CreateContext">Create New Input Action Context</button>
+</div>
+
+@if (loading)
+{
+    <p>Loading input action contexts...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p>Error: @error</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle custom-expandable-table">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Context Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var context in inputActionContexts.Contexts)
+                {
+                    <!-- Native click handler directly on the entire row element -->
+                    <tr @onclick="() => ToggleRow(context)">
+                        <td>@context.Id</td>
+                        <td>@context.Name</td>
+                        <td>@context.Actions.Count</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    Weckest.Game.InputActionContexts? inputActionContexts;
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContexts();
+    }
+
+    private async Task LoadContexts()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            var response = await GameClient.GetInputActionContextsAsync(new Empty());
+
+            // Map queryable directly to a list we can append items onto later
+            inputActionContexts = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async void CreateContext() {
+        NavManager.NavigateTo("/inputactioncontext/create/");
+    }
+
+    private async void ToggleRow(InputActionContext context)
+    {   
+        NavManager.NavigateTo($"/inputactioncontext/{context.Id}");
+    }
+}

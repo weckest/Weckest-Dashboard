@@ -1,0 +1,79 @@
+@page "/modules"
+
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Modules</h3>
+</div>
+
+@if (loading)
+{
+    <p>Loading modules...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p>Error: @error</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle custom-expandable-table">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>DeviceId</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var module in modules.Modules_)
+                {
+                    <!-- Native click handler directly on the entire row element -->
+                    <tr @onclick="() => ToggleRow(module)">
+                        <td>@module.Id</td>
+                        <td>@module.DeviceId</td>
+                        <td>@module.Name</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    Weckest.Game.Modules? modules;
+    private bool loading = true;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActions();
+    }
+
+    private async Task LoadActions()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            var response = await GameClient.GetModulesAsync(new Empty());
+
+            // Map queryable directly to a list we can append items onto later
+            modules = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ToggleRow(Module item)
+    {
+        NavManager.NavigateTo($"/modules/{item.Id}");
+    }
+}

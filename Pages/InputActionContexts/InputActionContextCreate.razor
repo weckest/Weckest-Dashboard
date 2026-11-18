@@ -1,0 +1,63 @@
+@page "/inputactioncontext/create"
+@inject GameService.GameServiceClient GameClient
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="card mb-4 shadow-sm border-success animate-fade-in">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Create New Input Action Context</h5>
+    </div>
+    <div class="card-body">
+        <EditForm Model="@newContext" OnValidSubmit="HandleCreateEvent">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label font-weight-bold">Context Name</label>
+                    <InputText @bind-Value="newContext.Name" class="form-control" placeholder="e.g., Spawn.Boss" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="submit" class="btn btn-success" disabled="@isSaving">
+                    @(isSaving ? "Saving..." : "Save Event")
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelCreation">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private bool isSaving = false;
+    private Weckest.Game.InputActionContext newContext = new();
+    private string? error;
+
+    private void CancelCreation()
+    {
+        NavManager.NavigateTo("/inputactioncontext");
+    }
+
+    private async Task HandleCreateEvent()
+    {
+        try
+        {
+            isSaving = true;
+            
+            // Send the gRPC call back to your server endpoint layout
+            // Note: Change 'CreateRoomEventAsync' if your .proto definition exposes a different endpoint string
+            await GameClient.CreateInputActionContextAsync(newContext);
+            
+            NavManager.NavigateTo("/inputactioncontext"); // Navigate back to the list view after creation
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to save event: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

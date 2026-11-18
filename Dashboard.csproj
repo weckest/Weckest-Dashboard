@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+  </PropertyGroup>
+
+  <ItemGroup>
+        <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+
+        <PackageReference Include="Grpc.Tools" Version="2.85.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+
+        <PackageReference Include="Grpc.Net.Client" Version="2.85.0" />
+        <PackageReference Include="Grpc.Net.Client.Web" Version="2.85.0" />
+        <PackageReference Include="Grpc.Net.ClientFactory" Version="2.85.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" Version="0.1.0-alpha.22351.1" />
+
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.11" />
+
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.11" PrivateAssets="all" />
+
+        <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.2" />
+    </ItemGroup>
+
+ <ItemGroup>
+    <Protobuf Include="..\Protocols\Proto\game.proto" GrpcServices="Client" Link="Proto\game.proto" />
+    <Protobuf Include="..\Protocols\Proto\database_options.proto" GrpcServices="None" />
+</ItemGroup>
+
+</Project>
